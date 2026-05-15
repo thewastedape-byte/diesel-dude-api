@@ -65,7 +65,7 @@ If the user mentions their specific asset (year/make/model/engine), tailor your 
 
 // Chat endpoint
 app.post('/api/chat', rateLimiter, async (req, res) => {
-  const { message, sessionId, assetContext, language } = req.body;
+  const { message, sessionId, assetContext, language, history } = req.body;
   if (!message) return res.status(400).json({ error: 'Message required' });
 
   stats.totalRequests++;
@@ -85,13 +85,18 @@ app.post('/api/chat', rateLimiter, async (req, res) => {
     systemMsg += `\n\nRespond in the user's language: ${language}`;
   }
 
+  // Build messages array with conversation history
+  const conversationHistory = Array.isArray(history) ? history.slice(-20) : []; // Keep last 20 messages
+  const messages = [
+    { role: 'system', content: systemMsg },
+    ...conversationHistory,
+    { role: 'user', content: message }
+  ];
+
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user', content: message }
-      ],
+      messages,
       max_tokens: 1000,
       temperature: 0.3,
     });
